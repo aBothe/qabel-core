@@ -37,16 +37,22 @@ public class SyncController {
 		// If stuff changed, acquire entire JSON from storage.
 		
 		// JSON merging:
-		// compare each SyncSettingsItem with the recently downloaded one, take the newer. discard older parts
+		// compare each SyncSettingsItem with the recently downloaded one, take the newer (timestamp comparison should suffice). discard older parts.
 		// }
 		
-		// Assign changed SyncSettingsItems to settings managers.
+		// Assign changed SyncSettingsItems to settings managers:
+		// Perhaps each SyncSettingsItem should have their own AssignFrom()-method to check individually required fields & specific constraints
 		
 		// If no local SyncSettingsItem was newer than a remote one:
 		// return;
 		
 		// Generate local sync data JSON
 		// Upload it to given syncStorageVolume
+		// if storage server rejects upload because file is being accessed already {
+		// wait 5 seconds
+		// doSync() again, keep SO prevention in mind, only e.g. 10 attempts maximum
+		// return
+		// }
 
 		// Push drop message that a sync has been done
 	}
