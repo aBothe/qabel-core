@@ -1,10 +1,8 @@
 package de.qabel.core.sync;
 
-import de.qabel.core.config.StorageServer;
-import de.qabel.core.config.StorageVolume;
-import de.qabel.core.drop.DropController;
-import de.qabel.core.drop.DropURL;
-import de.qabel.core.storage.StorageController;
+import de.qabel.core.config.*;
+import de.qabel.core.drop.*;
+import de.qabel.core.storage.*;
 
 public class SyncController {
 
@@ -17,8 +15,13 @@ public class SyncController {
 		this.syncStorageVolume = syncStorageVolume;
 		this.notificationDrop = drop;
 
-		// Register DropCallback in DropController:
-		//      if SyncDropMessage arriving, doSync() gets invoked. 
+		dropController.register(SyncDropMessage.class, new DropCallback<SyncDropMessage>() {
+			@Override
+			public void onDropMessage(DropMessage<SyncDropMessage> message) {
+				doSync();
+			}
+		});
+		
 		// Register ackack actor:
 		//      wait 5 minutes
 		//      invoke doSync()
