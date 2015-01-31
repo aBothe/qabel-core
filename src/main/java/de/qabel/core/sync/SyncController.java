@@ -69,11 +69,9 @@ public class SyncController {
 					newSettings = null;
 				}
 
-				// JSON merging:
+				// Merge new settings into existing settings
 				if(newSettings != null)
 					newAndOldSettingsDiffer = mergeSettings(newSettings, newSettings);
-
-				// compare each SyncSettingsItem with the recently downloaded one, take the newer (timestamp comparison should suffice). discard older parts.
 			}
 
 			if(!newAndOldSettingsDiffer)
