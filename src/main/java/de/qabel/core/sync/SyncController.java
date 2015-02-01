@@ -65,9 +65,6 @@ public final class SyncController {
 			@Override
 			public void run() {
 				while(!quitSyncThread) {
-					try {
-						Thread.sleep(MIN_TIMEBETWEENSYNCINVOKES);
-					} catch (InterruptedException e) { }
 
 					if(!syncInvokeEnqueued)
 						continue;
@@ -75,6 +72,10 @@ public final class SyncController {
 					syncInvokeEnqueued = false;
 
 					doSync();
+
+					try {
+						Thread.sleep(MIN_TIMEBETWEENSYNCINVOKES);
+					} catch (InterruptedException e) { }
 				}
 
 				// Sync a very last time before Qabel (and thus this thread) shuts down.
