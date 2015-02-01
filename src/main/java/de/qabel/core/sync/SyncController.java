@@ -30,8 +30,6 @@ public final class SyncController {
 		this.syncStorageVolume = syncStorageVolume;
 		this.notificationDrop = drop;
 
-		tryStartSyncThread();
-
 		// Register for sync notifications
 		modMgr.getDropController().register(SyncDropMessage.class, new DropCallback<SyncDropMessage>() {
 			@Override
@@ -51,6 +49,7 @@ public final class SyncController {
 	public void enqueueSync()
 	{
 		syncInvokeEnqueued = true;
+		tryStartSyncThread();
 	}
 
 	/**
