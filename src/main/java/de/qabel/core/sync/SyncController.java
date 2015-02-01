@@ -19,8 +19,10 @@ public final class SyncController {
 	StorageServer storageServer;
 	StorageVolume syncStorageVolume;
 	DropURL notificationDrop;
+	Thread syncThread;
 
-	boolean syncInvokeEnqueued = true;
+	boolean syncInvokeEnqueued;
+	boolean quitSyncThread;
 
 	public SyncController(ModuleManager modMgr, StorageController storageController, StorageServer storageServer, StorageVolume syncStorageVolume, DropURL drop) {
 		this.moduleManager = modMgr;
@@ -28,11 +30,43 @@ public final class SyncController {
 		this.syncStorageVolume = syncStorageVolume;
 		this.notificationDrop = drop;
 
-		// Setup asynchronous thread that waits for sync invokes.
-		Thread syncThread = new Thread() {
+		tryStartSyncThread();
+
+		// Register for sync notifications
+		modMgr.getDropController().register(SyncDropMessage.class, new DropCallback<SyncDropMessage>() {
+			@Override
+			public void onDropMessage(DropMessage<SyncDropMessage> message) {
+				enqueueSync();
+			}
+		});
+		
+		// TODO: Hook in a doSync()-invoke somewhere before Qabel starts to shuts down.
+
+		enqueueSync();
+	}
+
+	/**
+	 * Invoke the sync process asynchronously.
+	 * The actual execution will happen in max. MIN_TIMEBETWEENSYNCINVOKES milliseconds.
+	 */
+	public void enqueueSync()
+	{
+		syncInvokeEnqueued = true;
+	}
+
+	/**
+	 * Setup asynchronous thread that waits for sync invokes.
+	 */
+	void tryStartSyncThread()
+	{
+		if(syncThread != null && syncThread.isAlive())
+			return;
+
+		quitSyncThread = false;
+		syncThread = new Thread() {
 			@Override
 			public void run() {
-				while(true) {
+				while(!quitSyncThread) {
 					try {
 						Thread.sleep(MIN_TIMEBETWEENSYNCINVOKES);
 					} catch (InterruptedException e) { }
@@ -44,28 +78,28 @@ public final class SyncController {
 
 					doSync();
 				}
+
+				// Sync a very last time before Qabel (and thus this thread) shuts down.
+				doSync();
 			}
 		};
 		syncThread.start();
-
-		// Register for sync notifications
-		modMgr.getDropController().register(SyncDropMessage.class, new DropCallback<SyncDropMessage>() {
-			@Override
-			public void onDropMessage(DropMessage<SyncDropMessage> message) {
-				enqueueSync();
-			}
-		});
-		
-		// TODO: Hook in a doSync()-invoke somewhere before Qabel starts to shuts down.
 	}
 
 	/**
-	 * Invoke the sync process asynchronously.
-	 * The actual execution will happen in max. MIN_TIMEBETWEENSYNCINVOKES milliseconds.
+	 * Shuts down the sync thread after a very last sync invoke.
+	 * @param waitUntilFinished
 	 */
-	public void enqueueSync()
+	public void quitSyncThread(boolean waitUntilFinished)
 	{
-		syncInvokeEnqueued = true;
+		quitSyncThread = true;
+
+		if(!waitUntilFinished)
+			return;
+		
+		try {
+			syncThread.join(0);
+		} catch (InterruptedException e) { }
 	}
 
 	private void doSync() {
