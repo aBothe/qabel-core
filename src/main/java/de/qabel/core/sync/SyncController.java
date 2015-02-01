@@ -7,15 +7,21 @@ import de.qabel.core.drop.*;
 import de.qabel.core.http.StorageHTTP;
 import de.qabel.core.module.ModuleManager;
 import de.qabel.core.storage.*;
+import java.util.concurrent.ExecutorService;
 
 public class SyncController {
+
+	/**
+	 * Milliseconds.
+	 */
+	private static final int MIN_TIMEBETWEENSYNCINVOKES = 5_000;
 
 	final ModuleManager moduleManager;
 	StorageServer storageServer;
 	StorageVolume syncStorageVolume;
 	DropURL notificationDrop;
 
-	long lastSyncAttempt;
+	boolean syncInvokeEnqueued = true;
 
 	public SyncController(ModuleManager modMgr, StorageController storageController, StorageServer storageServer, StorageVolume syncStorageVolume, DropURL drop) {
 		this.moduleManager = modMgr;
@@ -23,22 +29,47 @@ public class SyncController {
 		this.syncStorageVolume = syncStorageVolume;
 		this.notificationDrop = drop;
 
+		// Setup asynchronous thread that waits for sync invokes.
+		ExecutorService exe = java.util.concurrent.Executors.newSingleThreadExecutor();
+		exe.submit(new Runnable() {
+			@Override
+			public void run() {
+				while(true) {
+					try {
+						Thread.sleep(MIN_TIMEBETWEENSYNCINVOKES);
+					} catch (InterruptedException e) { }
+
+					if(!syncInvokeEnqueued)
+						continue;
+
+					syncInvokeEnqueued = false;
+
+					doSync();
+				}
+			}
+		});
+
+		// Register for sync notifications
 		modMgr.getDropController().register(SyncDropMessage.class, new DropCallback<SyncDropMessage>() {
 			@Override
 			public void onDropMessage(DropMessage<SyncDropMessage> message) {
-				doSync();
+				enqueueSync();
 			}
 		});
 		
-		// Register ackack actor:
-		//      wait 5 minutes
-		//      invoke doSync()
-		// Hook in a doSync()-invoke somewhere before Qabel starts to shuts down.
+		// TODO: Hook in a doSync()-invoke somewhere before Qabel starts to shuts down.
 	}
 
-	public void doSync() {
-		// Compare Date.getTime() - lastSyncAttempt > e.g. 30 seconds to prevent sync spams.
+	/**
+	 * Invoke the sync process asynchronously.
+	 * The actual execution will happen in max. MIN_TIMEBETWEENSYNCINVOKES milliseconds.
+	 */
+	public void enqueueSync()
+	{
+		syncInvokeEnqueued = true;
+	}
 
+	private void doSync() {
 		// Get settings-managing objects from moduleManager
 		SyncedSettings syncedSettings = moduleManager.getSettings().getSyncedSettings();
 
@@ -50,52 +81,49 @@ public class SyncController {
 
 		boolean newAndOldSettingsDiffer = true;
 
-		// A second download attempt is made if there is new sync data being uploaded
-		// on a second peer client.
-		int downloadAttempt = 1;
-		while(downloadAttempt < 10) {
+		// Download syncStorageVolume
+		serializedSyncData = getSyncStorageContents();
 
-			// Download syncStorageVolume
-			serializedSyncData = getSyncStorageContents();
-
-			if (serializedSyncData != null && serializedSyncData.length() > 0) {
-				// Deserialize JSON
-				SyncedSettings newSettings;
-				try {
-					newSettings = gson.fromJson(serializedSyncData, SyncedSettings.class);
-				}
-				catch(Exception e)
-				{
-					newSettings = null;
-				}
-
-				// Merge new settings into existing settings
-				if(newSettings != null)
-					newAndOldSettingsDiffer = mergeSettings(newSettings, newSettings);
+		if (serializedSyncData != null && serializedSyncData.length() > 0) {
+			// Deserialize JSON
+			SyncedSettings newSettings;
+			try {
+				newSettings = gson.fromJson(serializedSyncData, SyncedSettings.class);
 			}
-
-			if(!newAndOldSettingsDiffer)
-				return;
-
-			// Generate local sync data JSON
-			serializedSyncData = gson.toJson(syncedSettings);
-
-			// Upload it to given syncStorageVolume
-			switch(putSyncStorageContents(serializedSyncData))
+			catch(Exception e)
 			{
-				case Succesful:
-					// Push drop message that a sync has been done
-					return;
-				case ResourceLocked:
-					// wait 5 seconds or so
-					downloadAttempt++;
-					continue;
-				case Fail:
-					// Inform user that upload couldn't happen
-					break;
+				newSettings = null;
 			}
 
-			break;
+			// Merge new settings into existing settings
+			if(newSettings != null)
+				newAndOldSettingsDiffer = mergeSettings(newSettings, newSettings);
+		}
+
+		if(!newAndOldSettingsDiffer) {
+			return;
+		}
+
+		// Generate local sync data JSON
+		serializedSyncData = gson.toJson(syncedSettings);
+
+		// Upload it to given syncStorageVolume
+		switch(putSyncStorageContents(serializedSyncData))
+		{
+			case Succesful:
+				// Push drop message that a sync has been done -- TODO: Add drop API that allows sending messages to drops, not only contacts;
+				//RESEARCH: How to obatin proper dropUrls?
+				//moduleManager.getDropController().sendAndForget(new DropMessage<SyncDropMessage>(), moduleManager.getDropController().getDropServers());
+
+				return;
+			case ResourceLocked:
+				// Try sync again a little time later on as it's likely that new sync 
+				// data will have arrived once the sync storage volume isn't locked anymore.
+				enqueueSync();
+				return;
+			case Fail:
+				// Inform user that upload couldn't happen
+				break;
 		}
 
 		// Silently inform user that sync couldn't be completed
