@@ -11,6 +11,13 @@ import de.qabel.core.storage.*;
 public final class SyncController {
 
 	/**
+	 * Every (this value * MIN_TIMEBETWEENSYNCINVOKES), a sync becomes force-invoked.
+	 * Set to -1 if no force-sync shall be done.
+	 * TODO: Make this a modifiable option.
+	 */
+	private static final int MAX_WAITINTERVALSBETWEENSYNC = 20;
+	
+	/**
 	 * Milliseconds.
 	 */
 	private static final int MIN_TIMEBETWEENSYNCINVOKES = 5_000;
@@ -64,12 +71,16 @@ public final class SyncController {
 		syncThread = new Thread() {
 			@Override
 			public void run() {
+				int waitInterval = 0;
 				while(!quitSyncThread) {
 
-					if(!syncInvokeEnqueued)
-						continue;
+					if (!syncInvokeEnqueued){
+						if (MAX_WAITINTERVALSBETWEENSYNC < 0 || ++waitInterval < MAX_WAITINTERVALSBETWEENSYNC)
+							continue;
+					}
 
 					syncInvokeEnqueued = false;
+					waitInterval = 0;
 
 					doSync();
 
