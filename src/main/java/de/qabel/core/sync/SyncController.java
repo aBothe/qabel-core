@@ -8,7 +8,7 @@ import de.qabel.core.http.StorageHTTP;
 import de.qabel.core.module.ModuleManager;
 import de.qabel.core.storage.*;
 
-public class SyncController {
+public final class SyncController {
 
 	/**
 	 * Milliseconds.
