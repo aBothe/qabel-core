@@ -15,31 +15,24 @@ import de.qabel.core.storage.*;
  */
 public final class SyncController {
 
-	/**
-	 * Every (this value * MIN_TIMEBETWEENSYNCINVOKES), a sync becomes force-invoked. Set to -1 if no force-sync shall
-	 * be done. TODO: Make this a modifiable option.
-	 */
-	private static final int MAX_WAITINTERVALSBETWEENSYNC = 20;
-
-	/**
-	 * Milliseconds.
-	 */
-	private static final int MIN_TIMEBETWEENSYNCINVOKES = 5_000;
-
 	final ModuleManager moduleManager;
-	StorageServer storageServer;
-	StorageVolume syncStorageVolume;
-	DropURL notificationDrop;
 	Thread syncThread;
+
+	SyncSettings getSyncSettings() {
+		for (LocaleModuleSettings s : moduleManager.getSettings().getLocalSettings().getLocaleModuleSettings()) {
+			if (s instanceof SyncSettings) {
+				return (SyncSettings) s;
+			}
+		}
+
+		return new SyncSettings();
+	}
 
 	boolean syncInvokeEnqueued;
 	boolean quitSyncThread;
 
-	public SyncController(ModuleManager modMgr, StorageController storageController, StorageServer storageServer, StorageVolume syncStorageVolume, DropURL drop) {
+	public SyncController(ModuleManager modMgr, StorageController storageController) {
 		this.moduleManager = modMgr;
-		this.storageServer = storageServer;
-		this.syncStorageVolume = syncStorageVolume;
-		this.notificationDrop = drop;
 
 		// Register for sync notifications
 		modMgr.getDropController().register(SyncDropMessage.class, new DropCallback<SyncDropMessage>() {
@@ -73,11 +66,13 @@ public final class SyncController {
 		syncThread = new Thread() {
 			@Override
 			public void run() {
+				SyncSettings settings = getSyncSettings();
 				int waitInterval = 0;
 				while (!quitSyncThread) {
 
 					if (!syncInvokeEnqueued) {
-						if (MAX_WAITINTERVALSBETWEENSYNC < 0 || ++waitInterval < MAX_WAITINTERVALSBETWEENSYNC) {
+						if (settings.getMaxWaitIntervalsBetweenForcedSyncs() < 0
+								|| ++waitInterval < settings.getMaxWaitIntervalsBetweenForcedSyncs()) {
 							continue;
 						}
 					}
@@ -88,7 +83,7 @@ public final class SyncController {
 					doSync();
 
 					try {
-						Thread.sleep(MIN_TIMEBETWEENSYNCINVOKES);
+						Thread.sleep(settings.getMinTimeBetweenSyncInvokes());
 					} catch (InterruptedException e) {
 					}
 				}
@@ -178,8 +173,9 @@ public final class SyncController {
 
 	String getSyncStorageContents() {
 		StorageHTTP storage = new StorageHTTP();
-		// use storageServer and syncStorageVolume to obtain all blobs
+		SyncSettings settings = getSyncSettings();
 
+		// use storageServer and syncStorageVolume to obtain all blobs
 		// Merge them to one in-memory byte array
 		// Make a string out of it
 		return "";
@@ -199,8 +195,9 @@ public final class SyncController {
 	 */
 	SyncPutStatus putSyncStorageContents(String content) {
 		StorageHTTP storage = new StorageHTTP();
-		// use storageServer and syncStorageVolume as QSV qualifiers
+		SyncSettings settings = getSyncSettings();
 
+		// use storageServer and syncStorageVolume as QSV qualifiers
 		// check for http code 423 ('Resource locked') -- TODO: Let the storage server return that value!!  (https://de.wikipedia.org/wiki/HTTP-Statuscode#4xx_.E2.80.93_Client-Fehler)
 		// code==423 {
 		// return SyncPutStatus.ResourceLocked;
