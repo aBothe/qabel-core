@@ -7,7 +7,6 @@ import de.qabel.core.drop.*;
 import de.qabel.core.http.StorageHTTP;
 import de.qabel.core.module.ModuleManager;
 import de.qabel.core.storage.*;
-import java.util.concurrent.ExecutorService;
 
 public class SyncController {
 
@@ -30,8 +29,7 @@ public class SyncController {
 		this.notificationDrop = drop;
 
 		// Setup asynchronous thread that waits for sync invokes.
-		ExecutorService exe = java.util.concurrent.Executors.newSingleThreadExecutor();
-		exe.submit(new Runnable() {
+		Thread syncThread = new Thread() {
 			@Override
 			public void run() {
 				while(true) {
@@ -47,7 +45,8 @@ public class SyncController {
 					doSync();
 				}
 			}
-		});
+		};
+		syncThread.start();
 
 		// Register for sync notifications
 		modMgr.getDropController().register(SyncDropMessage.class, new DropCallback<SyncDropMessage>() {
