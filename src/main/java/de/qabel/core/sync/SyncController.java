@@ -4,10 +4,12 @@ import de.qabel.core.config.SyncSettings;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import de.qabel.core.config.*;
+import de.qabel.core.crypto.QblEncKeyPair;
 import de.qabel.core.drop.*;
 import de.qabel.core.http.StorageHTTP;
 import de.qabel.core.module.ModuleManager;
 import de.qabel.core.storage.*;
+import java.security.InvalidKeyException;
 
 /**
  * https://github.com/Qabel/qabel-sync-module/wiki/Components-Sync
@@ -16,6 +18,11 @@ import de.qabel.core.storage.*;
  */
 public final class SyncController {
 
+	/**
+	 * If set to true, an incoming sync-notification will be ignored. Used for preventing a redundant second sync
+	 * invokation.
+	 */
+	boolean syncNotificationSent = false;
 	final ModuleManager moduleManager;
 	Thread syncThread;
 
@@ -39,6 +46,11 @@ public final class SyncController {
 		modMgr.getDropController().register(SyncDropMessage.class, new DropCallback<SyncDropMessage>() {
 			@Override
 			public void onDropMessage(DropMessage<SyncDropMessage> message) {
+				if (syncNotificationSent) {
+					return;
+				}
+				syncNotificationSent = false;
+
 				enqueueSync();
 			}
 		});
@@ -154,10 +166,7 @@ public final class SyncController {
 		// Upload it to given syncStorageVolume
 		switch (putSyncStorageContents(serializedSyncData)) {
 			case Succesful:
-				// Push drop message that a sync has been done -- TODO: Add drop API that allows sending messages to drops, not only contacts;
-				//RESEARCH: How to obatin proper dropUrls?
-				//moduleManager.getDropController().sendAndForget(new DropMessage<SyncDropMessage>(), moduleManager.getDropController().getDropServers());
-
+				sendSyncNotification();
 				return;
 			case ResourceLocked:
 				// Try sync again a little time later on as it's likely that new sync 
@@ -204,6 +213,32 @@ public final class SyncController {
 		// return SyncPutStatus.ResourceLocked;
 		// }
 		return SyncPutStatus.Succesful;
+	}
+
+	/**
+	 * Push drop message that a sync-upload has been completed successfully to the owner's drop which then causes the
+	 * user's other clients to invoke sync.
+	 */
+	void sendSyncNotification() {
+		for (Identity id : moduleManager.getSettings().getSyncedSettings().getIdentities().getIdentities()) {
+			// TODO: Add drop API that allows sending messages to drops, not only contacts;
+
+			// HACK: For now, construct a Contact that represents the actual user's identity.
+			Contact contact = new Contact(id);
+			contact.setPrimaryPublicKey(id.getPrimaryKeyPair().getQblPrimaryPublicKey());
+			for (QblEncKeyPair key : id.getPrimaryKeyPair().getEncKeyPairs()) {
+				try {
+					contact.addEncryptionPublicKey(key.getQblEncPublicKey());
+				} catch (InvalidKeyException e) {
+				}
+			}
+
+			contact.getDropUrls().addAll(id.getDrops());
+
+			moduleManager.getDropController().sendAndForget(new DropMessage<SyncDropMessage>(), contact);
+		}
+
+		syncNotificationSent = true;
 	}
 
 	/**
