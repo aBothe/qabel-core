@@ -8,6 +8,11 @@ import de.qabel.core.http.StorageHTTP;
 import de.qabel.core.module.ModuleManager;
 import de.qabel.core.storage.*;
 
+/**
+ * https://github.com/Qabel/qabel-sync-module/wiki/Components-Sync
+ *
+ * @author Alexander Bothe
+ */
 public final class SyncController {
 
 	/**
