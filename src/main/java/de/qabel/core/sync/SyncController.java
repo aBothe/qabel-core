@@ -1,5 +1,6 @@
 package de.qabel.core.sync;
 
+import de.qabel.core.config.SyncSettings;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import de.qabel.core.config.*;

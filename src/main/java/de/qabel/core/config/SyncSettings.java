@@ -1,8 +1,4 @@
-package de.qabel.core.sync;
-
-import de.qabel.core.config.LocaleModuleSettings;
-import de.qabel.core.config.StorageServer;
-import de.qabel.core.config.StorageVolume;
+package de.qabel.core.config;
 
 /**
  *
