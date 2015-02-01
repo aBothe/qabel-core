@@ -11,12 +11,11 @@ import de.qabel.core.storage.*;
 public final class SyncController {
 
 	/**
-	 * Every (this value * MIN_TIMEBETWEENSYNCINVOKES), a sync becomes force-invoked.
-	 * Set to -1 if no force-sync shall be done.
-	 * TODO: Make this a modifiable option.
+	 * Every (this value * MIN_TIMEBETWEENSYNCINVOKES), a sync becomes force-invoked. Set to -1 if no force-sync shall
+	 * be done. TODO: Make this a modifiable option.
 	 */
 	private static final int MAX_WAITINTERVALSBETWEENSYNC = 20;
-	
+
 	/**
 	 * Milliseconds.
 	 */
@@ -44,17 +43,15 @@ public final class SyncController {
 				enqueueSync();
 			}
 		});
-		
-		// TODO: Hook in quitSyncThread() somewhere before Qabel starts to shut down.
 
+		// TODO: Hook in quitSyncThread() somewhere before Qabel starts to shut down.
 		enqueueSync();
 	}
 
 	/**
 	 * Invoke the data synchronization asynchronously.
 	 */
-	public void enqueueSync()
-	{
+	public void enqueueSync() {
 		syncInvokeEnqueued = true;
 		tryStartSyncThread();
 	}
@@ -62,21 +59,22 @@ public final class SyncController {
 	/**
 	 * Setup asynchronous thread that waits for sync invokes.
 	 */
-	void tryStartSyncThread()
-	{
-		if(syncThread != null && syncThread.isAlive())
+	void tryStartSyncThread() {
+		if (syncThread != null && syncThread.isAlive()) {
 			return;
+		}
 
 		quitSyncThread = false;
 		syncThread = new Thread() {
 			@Override
 			public void run() {
 				int waitInterval = 0;
-				while(!quitSyncThread) {
+				while (!quitSyncThread) {
 
-					if (!syncInvokeEnqueued){
-						if (MAX_WAITINTERVALSBETWEENSYNC < 0 || ++waitInterval < MAX_WAITINTERVALSBETWEENSYNC)
+					if (!syncInvokeEnqueued) {
+						if (MAX_WAITINTERVALSBETWEENSYNC < 0 || ++waitInterval < MAX_WAITINTERVALSBETWEENSYNC) {
 							continue;
+						}
 					}
 
 					syncInvokeEnqueued = false;
@@ -86,7 +84,8 @@ public final class SyncController {
 
 					try {
 						Thread.sleep(MIN_TIMEBETWEENSYNCINVOKES);
-					} catch (InterruptedException e) { }
+					} catch (InterruptedException e) {
+					}
 				}
 
 				// Sync a very last time before Qabel (and thus this thread) shuts down.
@@ -98,18 +97,20 @@ public final class SyncController {
 
 	/**
 	 * Shuts down the sync thread after a very last sync invoke.
+	 *
 	 * @param waitUntilFinished
 	 */
-	public void quitSyncThread(boolean waitUntilFinished)
-	{
+	public void quitSyncThread(boolean waitUntilFinished) {
 		quitSyncThread = true;
 
-		if(!waitUntilFinished)
+		if (!waitUntilFinished) {
 			return;
-		
+		}
+
 		try {
 			syncThread.join(0);
-		} catch (InterruptedException e) { }
+		} catch (InterruptedException e) {
+		}
 	}
 
 	private void doSync() {
@@ -132,18 +133,17 @@ public final class SyncController {
 			SyncedSettings newSettings;
 			try {
 				newSettings = gson.fromJson(serializedSyncData, SyncedSettings.class);
-			}
-			catch(Exception e)
-			{
+			} catch (Exception e) {
 				newSettings = null;
 			}
 
 			// Merge new settings into existing settings
-			if(newSettings != null)
+			if (newSettings != null) {
 				newAndOldSettingsDiffer = mergeSettings(newSettings, newSettings);
+			}
 		}
 
-		if(!newAndOldSettingsDiffer) {
+		if (!newAndOldSettingsDiffer) {
 			return;
 		}
 
@@ -151,8 +151,7 @@ public final class SyncController {
 		serializedSyncData = gson.toJson(syncedSettings);
 
 		// Upload it to given syncStorageVolume
-		switch(putSyncStorageContents(serializedSyncData))
-		{
+		switch (putSyncStorageContents(serializedSyncData)) {
 			case Succesful:
 				// Push drop message that a sync has been done -- TODO: Add drop API that allows sending messages to drops, not only contacts;
 				//RESEARCH: How to obatin proper dropUrls?
@@ -172,19 +171,17 @@ public final class SyncController {
 		// Silently inform user that sync couldn't be completed
 	}
 
-	String getSyncStorageContents()
-	{
+	String getSyncStorageContents() {
 		StorageHTTP storage = new StorageHTTP();
 		// use storageServer and syncStorageVolume to obtain all blobs
 
 		// Merge them to one in-memory byte array
-		
 		// Make a string out of it
 		return "";
 	}
 
-	enum SyncPutStatus
-	{
+	enum SyncPutStatus {
+
 		Succesful,
 		ResourceLocked,
 		Fail
@@ -195,8 +192,7 @@ public final class SyncController {
 	 * @param content
 	 * @return true if entire upload was succesful, false if otherwise
 	 */
-	SyncPutStatus putSyncStorageContents(String content)
-	{
+	SyncPutStatus putSyncStorageContents(String content) {
 		StorageHTTP storage = new StorageHTTP();
 		// use storageServer and syncStorageVolume as QSV qualifiers
 
@@ -204,18 +200,16 @@ public final class SyncController {
 		// code==423 {
 		// return SyncPutStatus.ResourceLocked;
 		// }
-
 		return SyncPutStatus.Succesful;
 	}
 
 	/**
-	 * 
+	 *
 	 * @param newSettings
 	 * @param oldSettings Newer stuff from newSettings will be merged into this object
 	 * @return true if at least one property got overwritten, false if otherwise
 	 */
-	static boolean mergeSettings(SyncedSettings newSettings, SyncedSettings oldSettings)
-	{
+	static boolean mergeSettings(SyncedSettings newSettings, SyncedSettings oldSettings) {
 		// Assign changed SyncSettingsItems to settings managers: //TODO: Think thread-safe!
 		// Perhaps each SyncSettingsItem should have their own AssignFrom()-method to check individually required fields & specific constraints
 		return true;
