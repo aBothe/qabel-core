@@ -40,14 +40,13 @@ public final class SyncController {
 			}
 		});
 		
-		// TODO: Hook in a doSync()-invoke somewhere before Qabel starts to shuts down.
+		// TODO: Hook in quitSyncThread() somewhere before Qabel starts to shut down.
 
 		enqueueSync();
 	}
 
 	/**
-	 * Invoke the sync process asynchronously.
-	 * The actual execution will happen in max. MIN_TIMEBETWEENSYNCINVOKES milliseconds.
+	 * Invoke the data synchronization asynchronously.
 	 */
 	public void enqueueSync()
 	{
