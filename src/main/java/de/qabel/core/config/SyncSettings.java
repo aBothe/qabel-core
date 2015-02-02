@@ -8,6 +8,12 @@ public class SyncSettings extends LocaleModuleSettings {
 
 	StorageServer syncStorageServer;
 	StorageVolume syncStorageVolume;
+	/**
+	 * Id of the first sync storage blob.
+	 * Next blob identifiers will be part of the generated/downloaded blob content
+	 * (á la Linked List, just with Blob Ids instead of pointers)
+	 */
+	String firstBlobName;
 
 	/**
 	 * Every (this value * MIN_TIMEBETWEENSYNCINVOKES), a sync becomes force-invoked. Set to -1 if no force-sync shall
@@ -34,6 +40,14 @@ public class SyncSettings extends LocaleModuleSettings {
 
 	public void setSyncStorageVolume(StorageVolume v) {
 		syncStorageVolume = v;
+	}
+
+	public String getFirstBlobName() {
+		return firstBlobName;
+	}
+
+	public void getFirstBlobName(String n) {
+		firstBlobName = n;
 	}
 
 	public int getMaxWaitIntervalsBetweenForcedSyncs() {
