@@ -1,6 +1,6 @@
 package de.qabel.core.config;
 
-public abstract class AbstractModuleSettings {
+public abstract class AbstractModuleSettings extends SyncSettingItem {
 	private String type;
 
 	protected AbstractModuleSettings() {

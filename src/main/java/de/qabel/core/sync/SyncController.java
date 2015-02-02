@@ -10,6 +10,9 @@ import de.qabel.core.http.StorageHTTP;
 import de.qabel.core.module.ModuleManager;
 import de.qabel.core.storage.*;
 import java.security.InvalidKeyException;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * https://github.com/Qabel/qabel-sync-module/wiki/Components-Sync
@@ -241,6 +244,34 @@ public final class SyncController {
 		syncNotificationSent = true;
 	}
 
+	static <T extends SyncSettingItem> boolean mergeSyncedSettingsItems(Collection<T> newSettings, Collection<T> oldSettings) {
+		long lastModified = 0;
+		long lastNewModified = 0;
+
+		for (SyncSettingItem i : oldSettings) {
+			if (i.getUpdated() > lastModified) {
+				lastModified = i.getUpdated();
+			}
+		}
+
+		for (SyncSettingItem i : newSettings) {
+			if (i.getUpdated() > lastNewModified) {
+				lastNewModified = i.getUpdated();
+			}
+		}
+
+		if (lastNewModified == lastModified && newSettings.equals(oldSettings)) {
+			return false;
+		}
+
+		if (lastNewModified > lastModified) {
+			oldSettings.clear();
+			oldSettings.addAll(newSettings);
+		}
+
+		return true;
+	}
+
 	/**
 	 *
 	 * @param newSettings
@@ -250,6 +281,58 @@ public final class SyncController {
 	static boolean mergeSettings(SyncedSettings newSettings, SyncedSettings oldSettings) {
 		// Assign changed SyncSettingsItems to settings managers: //TODO: Think thread-safe!
 		// Perhaps each SyncSettingsItem should have their own AssignFrom()-method to check individually required fields & specific constraints
-		return true;
+
+		boolean changedAThing = mergeSyncedSettingsItems(newSettings.getAccounts().getAccounts(), oldSettings.getAccounts().getAccounts());
+
+		changedAThing |= mergeSyncedSettingsItems(newSettings.getContacts().getContacts(), oldSettings.getContacts().getContacts());
+
+		changedAThing |= mergeSyncedSettingsItems(newSettings.getDropServers().getDropServers(), oldSettings.getDropServers().getDropServers());
+
+		changedAThing |= mergeSyncedSettingsItems(newSettings.getIdentities().getIdentities(), oldSettings.getIdentities().getIdentities());
+
+		changedAThing |= mergeSyncedSettingsItems(newSettings.getStorageServers().getStorageServers(), oldSettings.getStorageServers().getStorageServers());
+
+		changedAThing |= mergeSyncedSettingsItems(newSettings.getStorageVolumes().getStorageVolumes(), oldSettings.getStorageVolumes().getStorageVolumes());
+
+		Set<SyncedModuleSettings> newModuleSettings = newSettings.getSyncedModuleSettings();
+		Set<SyncedModuleSettings> oldModuleSettings = oldSettings.getSyncedModuleSettings();
+
+		for (SyncedModuleSettings oldItem : oldSettings.getSyncedModuleSettings()) {
+			SyncedModuleSettings newItem = null;
+			for (SyncedModuleSettings k : newModuleSettings) //TODO: Faster access via type lookup
+			{
+				if (k.getType().equals(oldItem.getType())) {
+					newItem = k;
+					break;
+				}
+			}
+
+			// Item exists in oldSettings but not in newSettings
+			if (newItem == null) {
+				// Don't discard newSettings' item but let it stay there
+				// Thus, module settings can't be removed, just overwritten by e.g. default (null'd-out) items
+				changedAThing = true;
+				continue;
+			}
+
+			// Nothing has changed
+			if (newItem.getUpdated() == oldItem.getUpdated() && oldItem.equals(newItem)) {
+				continue;
+			}
+
+			// newItem is newer than oldItem
+			if (newItem.getUpdated() > oldItem.getUpdated()) {
+				// Keep newItem, discard oldItem
+				oldModuleSettings.remove(oldItem);
+				oldModuleSettings.add(newItem);
+			}
+
+			// newItem.getUpdated() must be less than oldItem.getUpdated()
+			// keep oldItem, discard newItem
+			// changedAThing = true;
+			changedAThing = true;
+		}
+
+		return changedAThing;
 	}
 }
