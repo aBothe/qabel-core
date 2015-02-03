@@ -6,5 +6,5 @@ import de.qabel.core.drop.ModelObject;
  *
  * @author Alexander Bothe
  */
-public class SyncDropMessage extends ModelObject {
+public class SyncNotificationMessage extends ModelObject {
 }

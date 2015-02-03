@@ -46,9 +46,9 @@ public final class SyncController {
 		this.moduleManager = modMgr;
 
 		// Register for sync notifications
-		modMgr.getDropController().register(SyncDropMessage.class, new DropCallback<SyncDropMessage>() {
+		modMgr.getDropController().register(SyncNotificationMessage.class, new DropCallback<SyncNotificationMessage>() {
 			@Override
-			public void onDropMessage(DropMessage<SyncDropMessage> message) {
+			public void onDropMessage(DropMessage<SyncNotificationMessage> message) {
 				if (syncNotificationSent) {
 					return;
 				}
@@ -238,7 +238,7 @@ public final class SyncController {
 
 			contact.getDropUrls().addAll(id.getDrops());
 
-			moduleManager.getDropController().sendAndForget(new DropMessage<SyncDropMessage>(), contact);
+			moduleManager.getDropController().sendAndForget(new DropMessage<SyncNotificationMessage>(), contact);
 		}
 
 		syncNotificationSent = true;
