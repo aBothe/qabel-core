@@ -1,11 +1,15 @@
 package de.qabel.core.config;
 
+import de.qabel.core.crypto.QblPrimaryKeyPair;
+import javax.crypto.SecretKey;
+
 /**
  *
  * @author Alexander Bothe
  */
 public class SyncSettings extends LocaleModuleSettings {
 
+	SecretKey syncKey;
 	StorageServer syncStorageServer;
 	StorageVolume syncStorageVolume;
 	/**
@@ -25,6 +29,14 @@ public class SyncSettings extends LocaleModuleSettings {
 	 * Milliseconds.
 	 */
 	int minTimeBetweenSyncInvokes = 5_000;
+
+	public SecretKey getSyncStorageKey() {
+		return syncKey;
+	}
+
+	public void setSyncStorageKey(SecretKey v) {
+		syncKey = v;
+	}
 
 	public StorageServer getSyncStorageServer() {
 		return syncStorageServer;
@@ -46,7 +58,7 @@ public class SyncSettings extends LocaleModuleSettings {
 		return firstBlobName;
 	}
 
-	public void getFirstBlobName(String n) {
+	public void setFirstBlobName(String n) {
 		firstBlobName = n;
 	}
 

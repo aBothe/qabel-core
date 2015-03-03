@@ -6,13 +6,17 @@ import com.google.gson.GsonBuilder;
 import de.qabel.core.config.*;
 import de.qabel.core.crypto.QblEncKeyPair;
 import de.qabel.core.drop.*;
-import de.qabel.core.http.StorageHTTP;
+import de.qabel.core.exceptions.QblDropPayloadSizeException;
+import de.qabel.core.exceptions.QblStorageInvalidBlobName;
+import de.qabel.core.exceptions.QblStorageInvalidToken;
 import de.qabel.core.module.ModuleManager;
 import de.qabel.core.storage.*;
+import java.io.File;
+import java.io.IOException;
 import java.security.InvalidKeyException;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.Set;
+import java.util.logging.*;
 
 /**
  * https://github.com/Qabel/qabel-sync-module/wiki/Components-Sync
@@ -20,6 +24,7 @@ import java.util.Set;
  * @author Alexander Bothe
  */
 public final class SyncController {
+	private final static Logger logger = Logger.getLogger(StorageAction.class.getName());
 
 	/**
 	 * If set to true, an incoming sync-notification will be ignored. Used for preventing a redundant second sync
@@ -134,16 +139,20 @@ public final class SyncController {
 		SyncedSettings syncedSettings = moduleManager.getSettings().getSyncedSettings();
 
 		// Setup (de)serializer
-		String serializedSyncData;
+		String serializedSyncData = null;
 		GsonBuilder builder = new GsonBuilder();
 		builder.registerTypeAdapter(SyncedSettings.class, new SyncedSettingsTypeAdapter());
 		Gson gson = builder.create();
 
 		boolean newAndOldSettingsDiffer = true;
 
-		// Download syncStorageVolume
-		serializedSyncData = getSyncStorageContents();
-
+		try {
+			// Download syncStorageVolume
+			serializedSyncData = getSyncStorageContents();
+		} catch (IOException | InvalidKeyException | QblStorageInvalidBlobName e) {
+			logger.log(Level.WARNING, "Error while downloading sync info.", e);
+		}
+		
 		if (serializedSyncData != null && serializedSyncData.length() > 0) {
 			// Deserialize JSON
 			SyncedSettings newSettings;
@@ -184,12 +193,19 @@ public final class SyncController {
 		// Silently inform user that sync couldn't be completed
 	}
 
-	String getSyncStorageContents() {
-		StorageHTTP storage = new StorageHTTP();
+	String getSyncStorageContents() throws IOException, InvalidKeyException, QblStorageInvalidBlobName {
 		SyncSettings settings = getSyncSettings();
 
 		// use storageServer and syncStorageVolume to obtain all blobs
+		File firstBlobFile = StorageAction.retrieveBlob(settings.getSyncStorageVolume(), settings.getFirstBlobName(), settings.getSyncStorageKey());
+
+		// read first blob.
+
+
+
 		// Merge them to one in-memory byte array
+
+
 		// Make a string out of it
 		return "";
 	}
@@ -207,9 +223,16 @@ public final class SyncController {
 	 * @return true if entire upload was succesful, false if otherwise
 	 */
 	SyncPutStatus putSyncStorageContents(String content) {
-		StorageHTTP storage = new StorageHTTP();
 		SyncSettings settings = getSyncSettings();
 
+		
+		try{
+			StorageAction.uploadBlob(null, null, null);
+		}catch(IOException | InvalidKeyException | QblStorageInvalidToken e){
+			logger.log(Level.WARNING, "Error while uploading sync info.", e);
+			return SyncPutStatus.Fail;
+		}
+		
 		// use storageServer and syncStorageVolume as QSV qualifiers
 		// check for http code 423 ('Resource locked') -- TODO: Let the storage server return that value!!  (https://de.wikipedia.org/wiki/HTTP-Statuscode#4xx_.E2.80.93_Client-Fehler)
 		// code==423 {
@@ -223,12 +246,14 @@ public final class SyncController {
 	 * user's other clients to invoke sync.
 	 */
 	void sendSyncNotification() {
+
+		SyncNotificationMessage msg = new SyncNotificationMessage();
+
 		for (Identity id : moduleManager.getSettings().getSyncedSettings().getIdentities().getIdentities()) {
 			// TODO: Add drop API that allows sending messages to drops, not only contacts;
 
 			// HACK: For now, construct a Contact that represents the actual user's identity.
-			Contact contact = new Contact(id);
-			contact.setPrimaryPublicKey(id.getPrimaryKeyPair().getQblPrimaryPublicKey());
+			Contact contact = new Contact(id, id.getDropUrls(), id.getPrimaryPublicKey());
 			for (QblEncKeyPair key : id.getPrimaryKeyPair().getEncKeyPairs()) {
 				try {
 					contact.addEncryptionPublicKey(key.getQblEncPublicKey());
@@ -236,9 +261,11 @@ public final class SyncController {
 				}
 			}
 
-			contact.getDropUrls().addAll(id.getDrops());
-
-			moduleManager.getDropController().sendAndForget(new DropMessage<SyncNotificationMessage>(), contact);
+			try {
+				moduleManager.getDropController().sendAndForget(new DropMessage(id, msg), contact);
+			} catch (QblDropPayloadSizeException e) {
+				logger.log(Level.WARNING, "Sync notification couldn't be sent via Drop.", e);
+			}
 		}
 
 		syncNotificationSent = true;
