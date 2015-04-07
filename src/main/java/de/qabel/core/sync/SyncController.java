@@ -253,13 +253,7 @@ public final class SyncController {
 			// TODO: Add drop API that allows sending messages to drops, not only contacts;
 
 			// HACK: For now, construct a Contact that represents the actual user's identity.
-			Contact contact = new Contact(id, id.getDropUrls(), id.getPrimaryPublicKey());
-			for (QblEncKeyPair key : id.getPrimaryKeyPair().getEncKeyPairs()) {
-				try {
-					contact.addEncryptionPublicKey(key.getQblEncPublicKey());
-				} catch (InvalidKeyException e) {
-				}
-			}
+			Contact contact = new Contact(id, id.getDropUrls(), id.getEcPublicKey());
 
 			try {
 				moduleManager.getDropController().sendAndForget(new DropMessage(id, msg), contact);
