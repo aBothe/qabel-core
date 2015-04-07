@@ -4,7 +4,7 @@ import de.qabel.core.config.SyncSettings;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import de.qabel.core.config.*;
-import de.qabel.core.crypto.QblEncKeyPair;
+import de.qabel.core.crypto.QblECKeyPair;
 import de.qabel.core.drop.*;
 import de.qabel.core.exceptions.QblDropPayloadSizeException;
 import de.qabel.core.exceptions.QblStorageInvalidBlobName;

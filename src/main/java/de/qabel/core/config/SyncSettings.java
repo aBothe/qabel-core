@@ -1,6 +1,5 @@
 package de.qabel.core.config;
 
-import de.qabel.core.crypto.QblPrimaryKeyPair;
 import javax.crypto.SecretKey;
 
 /**
